@@ -1,1 +1,41 @@
-{"name":"agent-shell-cli","version":"0.1.0","description":"Provider-neutral agent CLI with chats, skills, MCP and permission-gated tools","type":"module","license":"MIT","bin":{"agent-shell":"dist/cli.js"},"files":["dist","README.md","LICENSE","examples"],"engines":{"node":">=22"},"scripts":{"build":"tsc","typecheck":"tsc --noEmit","test":"tsx --test tests/*.test.ts","start":"tsx src/cli.ts"},"dependencies":{"@modelcontextprotocol/sdk":"^1.32.0","@inquirer/prompts":"^7.0.0","chalk":"^5.0.0","diff":"^8.0.0","zod":"^3.25.0"},"devDependencies":{"typescript":"^5.9.0","tsx":"^4.20.0","@types/node":"^22.0.0","@types/diff":"^7.0.0"}}
+{
+  "name": "agent-shell-cli",
+  "version": "0.1.0",
+  "description": "Provider-neutral agent CLI with chats, skills, MCP and permission-gated tools",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "agent-shell": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "examples"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test tests/*.test.ts",
+    "start": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^7.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "chalk": "^5.0.0",
+    "cross-spawn": "^7.0.6",
+    "diff": "^8.0.0",
+    "zod": "^3.25.0"
+  },
+  "devDependencies": {
+    "@types/cross-spawn": "^6.0.6",
+    "@types/diff": "^7.0.0",
+    "@types/node": "^22.0.0",
+    "prettier": "^3.9.9",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

@@ -1,10 +1,70 @@
-import {mkdir,readFile,writeFile,realpath} from 'node:fs/promises';import {join,resolve} from 'node:path';import {Store} from './storage.js';import {loadConfig,saveConfig} from './config.js';
-export interface Skill {name:string;description:string;path:string;instructions:string}
+import { mkdir, readFile, writeFile, realpath } from "node:fs/promises";
+import { join, resolve } from "node:path";
+import { Store } from "./storage.js";
+import { loadConfig, saveConfig } from "./config.js";
+export interface Skill {
+  name: string;
+  description: string;
+  path: string;
+  instructions: string;
+}
 export class Skills {
- constructor(private store:Store){}
- async read(path:string):Promise<Skill>{const file=join(path,'SKILL.md'),raw=await readFile(file,'utf8');const header=raw.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);if(!header)throw new Error(`Invalid skill frontmatter: ${file}`);const name=header[1].match(/^name:\s*(.+)$/m)?.[1].trim().replace(/^['"]|['"]$/g,'');const description=header[1].match(/^description:\s*(.+)$/m)?.[1].trim().replace(/^['"]|['"]$/g,'')||'';if(!name||!/^[a-z0-9][a-z0-9-]{0,63}$/.test(name))throw new Error(`Invalid skill name in ${file}`);return {name,description,path,instructions:raw};}
- async list():Promise<Skill[]>{const config=await loadConfig(this.store);const skills=await Promise.all(config.skillPaths.map(p=>this.read(p)));if(new Set(skills.map(s=>s.name)).size!==skills.length)throw new Error('Duplicate skill names');return skills;}
- async add(path:string){const canonical=await realpath(resolve(path)),skill=await this.read(canonical),all=await this.list();if(all.some(s=>s.name===skill.name))throw new Error('Skill already exists');const config=await loadConfig(this.store);config.skillPaths.push(canonical);await saveConfig(this.store,config);}
- async create(name:string):Promise<string>{if(!/^[a-z0-9][a-z0-9-]{0,63}$/.test(name))throw new Error('Invalid skill name');if((await this.list()).some(s=>s.name===name))throw new Error('Skill already exists');const path=join(this.store.directory,'skills',name);await mkdir(path,{recursive:true});await writeFile(join(path,'SKILL.md'),`---\nname: ${name}\ndescription: Local ${name} skill\n---\n\nDescribe the workflow and instructions here.\n`,{flag:'wx'});await this.add(path);return path;}
- async show(name:string){const found=(await this.list()).find(s=>s.name===name);if(!found)throw new Error('Unknown skill');return found.instructions;}
+  constructor(private store: Store) {}
+  async read(path: string): Promise<Skill> {
+    const file = join(path, "SKILL.md"),
+      raw = await readFile(file, "utf8");
+    const header = raw.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+    if (!header) throw new Error(`Invalid skill frontmatter: ${file}`);
+    const name = header[1]
+      .match(/^name:\s*(.+)$/m)?.[1]
+      .trim()
+      .replace(/^['"]|['"]$/g, "");
+    const description =
+      header[1]
+        .match(/^description:\s*(.+)$/m)?.[1]
+        .trim()
+        .replace(/^['"]|['"]$/g, "") || "";
+    if (!name || !/^[a-z0-9][a-z0-9-]{0,63}$/.test(name))
+      throw new Error(`Invalid skill name in ${file}`);
+    return { name, description, path, instructions: raw };
+  }
+  async list(): Promise<Skill[]> {
+    const config = await loadConfig(this.store);
+    const skills = await Promise.all(
+      config.skillPaths.map((p) => this.read(p)),
+    );
+    if (new Set(skills.map((s) => s.name)).size !== skills.length)
+      throw new Error("Duplicate skill names");
+    return skills;
+  }
+  async add(path: string) {
+    const canonical = await realpath(resolve(path)),
+      skill = await this.read(canonical),
+      all = await this.list();
+    if (all.some((s) => s.name === skill.name))
+      throw new Error("Skill already exists");
+    const config = await loadConfig(this.store);
+    config.skillPaths.push(canonical);
+    await saveConfig(this.store, config);
+  }
+  async create(name: string): Promise<string> {
+    if (!/^[a-z0-9][a-z0-9-]{0,63}$/.test(name))
+      throw new Error("Invalid skill name");
+    if ((await this.list()).some((s) => s.name === name))
+      throw new Error("Skill already exists");
+    const path = join(this.store.directory, "skills", name);
+    await mkdir(path, { recursive: true });
+    await writeFile(
+      join(path, "SKILL.md"),
+      `---\nname: ${name}\ndescription: Local ${name} skill\n---\n\nDescribe the workflow and instructions here.\n`,
+      { flag: "wx" },
+    );
+    await this.add(path);
+    return path;
+  }
+  async show(name: string) {
+    const found = (await this.list()).find((s) => s.name === name);
+    if (!found) throw new Error("Unknown skill");
+    return found.instructions;
+  }
 }

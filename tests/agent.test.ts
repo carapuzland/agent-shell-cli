@@ -1,3 +1,87 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {mkdtemp} from 'node:fs/promises';import {join} from 'node:path';import {tmpdir} from 'node:os';import {Store} from '../src/storage.js';import {Chats} from '../src/chats.js';import {Usage} from '../src/usage.js';import {Agent} from '../src/agent.js';import {defaultConfig} from '../src/types.js';
-test('failed generation preserves user history without successful assistant',async()=>{const store=new Store(await mkdtemp(join(tmpdir(),'agent-'))),chats=new Chats(store),chat=await chats.create();const config=defaultConfig();config.provider.kind='openai';const a=new Agent(chats,new Usage(store),async()=>[],async()=>[],async()=>'',()=>{});await assert.rejects(a.respond(chat.id,'hello',config,new AbortController().signal,{async *generate(){yield {type:'text',text:'partial'};throw new Error('broken');}}),/broken/);const restored=await chats.select(chat.id);assert.equal(restored.messages.length,1);assert.equal(restored.messages[0].role,'user');});
-test('tool loop dispatches calls and stores response footer metrics',async()=>{const store=new Store(await mkdtemp(join(tmpdir(),'agent-'))),chats=new Chats(store),chat=await chats.create();const config=defaultConfig();config.provider.kind='openai';let round=0,calls=0;const agent=new Agent(chats,new Usage(store),async()=>[],async()=>[],async(name,args)=>{assert.equal(name,'read_file');assert.equal(args.path,'x');calls++;return 'contents';},()=>{});const metrics=await agent.respond(chat.id,'read',config,new AbortController().signal,{async *generate(request){round++;if(round===1){yield {type:'tool',call:{id:'1',name:'read_file',arguments:{path:'x'}}};}else{assert.equal(request.messages.at(-1)?.role,'tool');yield {type:'text',text:'done'};}yield {type:'usage',usage:{input:2,output:3,estimated:false}};yield {type:'done'};}});assert.equal(calls,1);assert.equal(metrics.output,6);assert.equal((await chats.select(chat.id)).messages.at(-1)?.content,'done');});
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { mkdtemp } from "node:fs/promises";
+import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { Store } from "../src/storage.js";
+import { Chats } from "../src/chats.js";
+import { Usage } from "../src/usage.js";
+import { Agent } from "../src/agent.js";
+import { defaultConfig } from "../src/types.js";
+test("failed generation preserves user history without successful assistant", async () => {
+  const store = new Store(await mkdtemp(join(tmpdir(), "agent-"))),
+    chats = new Chats(store),
+    chat = await chats.create();
+  const config = defaultConfig();
+  config.provider.kind = "openai";
+  const a = new Agent(
+    chats,
+    new Usage(store),
+    async () => [],
+    async () => [],
+    async () => "",
+    () => {},
+  );
+  await assert.rejects(
+    a.respond(chat.id, "hello", config, new AbortController().signal, {
+      async *generate() {
+        yield { type: "text", text: "partial" };
+        throw new Error("broken");
+      },
+    }),
+    /broken/,
+  );
+  const restored = await chats.select(chat.id);
+  assert.equal(restored.messages.length, 1);
+  assert.equal(restored.messages[0].role, "user");
+});
+test("tool loop dispatches calls and stores response footer metrics", async () => {
+  const store = new Store(await mkdtemp(join(tmpdir(), "agent-"))),
+    chats = new Chats(store),
+    chat = await chats.create();
+  const config = defaultConfig();
+  config.provider.kind = "openai";
+  let round = 0,
+    calls = 0;
+  const agent = new Agent(
+    chats,
+    new Usage(store),
+    async () => [],
+    async () => [],
+    async (name, args) => {
+      assert.equal(name, "read_file");
+      assert.equal(args.path, "x");
+      calls++;
+      return "contents";
+    },
+    () => {},
+  );
+  const metrics = await agent.respond(
+    chat.id,
+    "read",
+    config,
+    new AbortController().signal,
+    {
+      async *generate(request) {
+        round++;
+        if (round === 1) {
+          yield {
+            type: "tool",
+            call: { id: "1", name: "read_file", arguments: { path: "x" } },
+          };
+        } else {
+          assert.equal(request.messages.at(-1)?.role, "tool");
+          yield { type: "text", text: "done" };
+        }
+        yield {
+          type: "usage",
+          usage: { input: 2, output: 3, estimated: false },
+        };
+        yield { type: "done" };
+      },
+    },
+  );
+  assert.equal(calls, 1);
+  assert.equal(metrics.output, 6);
+  assert.equal((await chats.select(chat.id)).messages.at(-1)?.content, "done");
+});
