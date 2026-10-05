@@ -1,11 +1,40 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, writeFile, readFile } from "node:fs/promises";
+import { mkdtemp, writeFile, readFile, mkdir, symlink } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Store } from "../src/storage.js";
 import { Permissions } from "../src/permissions.js";
 import { Tools } from "../src/tools.js";
+test("directory aliases share canonical approval scope", async () => {
+  const d = await mkdtemp(join(tmpdir(), "alias-")),
+    target = join(d, "target"),
+    alias = join(d, "alias");
+  await mkdir(target);
+  await writeFile(join(target, "file"), "hello");
+  await symlink(
+    target,
+    alias,
+    process.platform === "win32" ? "junction" : "dir",
+  );
+  let count = 0;
+  const t = new Tools(
+    new Permissions(new Store(d), async () => {
+      count++;
+      return "always";
+    }),
+    d,
+  );
+  assert.equal(
+    await t.execute("read_file", { path: join(target, "file") }),
+    "hello",
+  );
+  assert.equal(
+    await t.execute("read_file", { path: join(alias, "file") }),
+    "hello",
+  );
+  assert.equal(count, 1);
+});
 test("denial prevents writes and commands", async () => {
   const d = await mkdtemp(join(tmpdir(), "gate-"));
   const path = join(d, "a file.txt");

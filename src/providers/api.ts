@@ -141,12 +141,18 @@ export class ApiProvider implements Provider {
     let input = 0;
     for await (const event of sse(response)) {
       if (request.signal.aborted) throw new Error("Cancelled");
+      const previousUsage = usage;
       if (anthropic) {
         if (event.type === "message_start") {
           input =
             (event.message?.usage?.input_tokens ?? 0) +
             (event.message?.usage?.cache_creation_input_tokens ?? 0) +
             (event.message?.usage?.cache_read_input_tokens ?? 0);
+          usage = {
+            input,
+            output: event.message?.usage?.output_tokens ?? 0,
+            estimated: false,
+          };
         }
         if (
           event.type === "content_block_start" &&
@@ -196,8 +202,8 @@ export class ApiProvider implements Provider {
             estimated: false,
           };
       }
+      if (usage && usage !== previousUsage) yield { type: "usage", usage };
     }
-    if (usage) yield { type: "usage", usage };
     if (!completed) throw new Error("Provider stream ended without completion");
     for (const call of calls.values()) {
       if (!call.id || !call.name) throw new Error("Incomplete tool call");

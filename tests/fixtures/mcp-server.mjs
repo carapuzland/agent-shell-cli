@@ -6,3 +6,7 @@ server.tool("echo", { text: z.string() }, async ({ text }) => ({
   content: [{ type: "text", text }],
 }));
 await server.connect(new StdioServerTransport());
+server.tool("slow", {}, async () => {
+  await new Promise((r) => setTimeout(r, 1500));
+  return { content: [{ type: "text", text: "late" }] };
+});

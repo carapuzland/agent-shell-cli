@@ -64,6 +64,7 @@ export class Mcp {
     name: string,
     tool: string,
     args: Record<string, unknown>,
+    signal?: AbortSignal,
   ): Promise<string> {
     const c = this.connection(name);
     if (
@@ -74,9 +75,11 @@ export class Mcp {
       }))
     )
       throw new Error("Denied");
+    if (signal?.aborted) throw new Error("Cancelled");
     return JSON.stringify(
       await c.client.callTool({ name: tool, arguments: args }, undefined, {
         timeout: 60000,
+        signal,
       }),
     );
   }

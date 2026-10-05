@@ -1,0 +1,7 @@
+{
+  "provider": { "kind": "disabled", "maxOutputTokens": 4096 },
+  "mcp": {
+    "local": { "transport": "http", "url": "http://localhost:3000/mcp" }
+  },
+  "skillPaths": []
+}

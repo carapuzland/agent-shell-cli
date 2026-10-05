@@ -10,11 +10,13 @@ export async function runProcess(
     input?: string;
   } = {},
 ): Promise<{ stdout: string; stderr: string; exitCode: number }> {
+  if (options.signal?.aborted) throw new Error("Cancelled");
   return new Promise((resolve, reject) => {
     const child = spawn(command, args, {
       cwd: options.cwd,
       shell: options.shell ?? false,
       windowsHide: true,
+      detached: process.platform !== "win32",
       stdio: ["pipe", "pipe", "pipe"],
     });
     let stdout = "",
@@ -27,7 +29,13 @@ export async function runProcess(
           windowsHide: true,
           stdio: "ignore",
         });
-      } else child.kill("SIGKILL");
+      } else if (child.pid) {
+        try {
+          process.kill(-child.pid, "SIGKILL");
+        } catch {
+          child.kill("SIGKILL");
+        }
+      }
     };
     const abort = () => {
       failure = new Error("Cancelled");

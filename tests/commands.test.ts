@@ -5,6 +5,32 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Shell } from "../src/commands.js";
 import { Store } from "../src/storage.js";
+test("external CLI delegation needs permission before starting provider", async () => {
+  const store = new Store(await mkdtemp(join(tmpdir(), "cli-gate-")));
+  let approved = 0;
+  const s = new Shell(store, {
+    print: () => {},
+    stream: () => {},
+    approve: async (request) => {
+      assert.equal(request.operation, "provider-cli");
+      approved++;
+      return "deny";
+    },
+    clear: () => {},
+  });
+  const previousPath = process.env.PATH;
+  process.env.PATH = "";
+  try {
+    await s.init();
+    await s.route('/provider set {"kind":"codex"}');
+    await assert.rejects(s.route("hello"), /Denied/);
+    assert.equal(approved, 1);
+    assert.equal((await s.current()).messages.length, 0);
+  } finally {
+    process.env.PATH = previousPath;
+    await s.close();
+  }
+});
 test("offline routing preserves chats, clears only screen and diagnoses unknown commands", async () => {
   const out: string[] = [];
   const s = new Shell(new Store(await mkdtemp(join(tmpdir(), "shell-"))), {

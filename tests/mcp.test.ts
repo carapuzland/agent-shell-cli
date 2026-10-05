@@ -6,6 +6,28 @@ import { join, resolve } from "node:path";
 import { Store } from "../src/storage.js";
 import { Permissions } from "../src/permissions.js";
 import { Mcp } from "../src/mcp.js";
+test("MCP call propagates cancellation immediately", async () => {
+  const d = await mkdtemp(join(tmpdir(), "mcp-"));
+  const m = new Mcp(new Permissions(new Store(d), async () => "allow"));
+  try {
+    await m.connect("test", {
+      transport: "stdio",
+      command: process.execPath,
+      args: [resolve("tests/fixtures/mcp-server.mjs")],
+    });
+    const controller = new AbortController();
+    const started = Date.now();
+    const pending = m.call("test", "slow", {}, controller.signal);
+    setTimeout(() => controller.abort(), 50);
+    await assert.rejects(pending);
+    assert.ok(
+      Date.now() - started < 1000,
+      "cancellation should not wait for tool completion",
+    );
+  } finally {
+    await m.close();
+  }
+});
 test("denied MCP startup does not launch a process", async () => {
   const d = await mkdtemp(join(tmpdir(), "mcp-"));
   const m = new Mcp(new Permissions(new Store(d), async () => "deny"));

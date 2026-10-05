@@ -153,7 +153,7 @@ export class Shell {
         tools = await this.mcp.listTools(server),
         tool = tools[Number(match[2])];
       if (!tool) throw new Error("Unknown MCP tool");
-      return this.mcp.call(server, tool.name, args);
+      return this.mcp.call(server, tool.name, args, signal);
     }
     return this.tools.execute(name, args, signal);
   }
@@ -175,6 +175,21 @@ export class Shell {
       }
       this.controller = new AbortController();
       try {
+        if (
+          (config.provider.kind === "codex" ||
+            config.provider.kind === "claude") &&
+          !(await this.permissions.authorize({
+            operation: "provider-cli",
+            resource: JSON.stringify([
+              config.provider.kind,
+              config.provider.model ?? "default",
+              process.cwd(),
+            ]),
+            description: `Delegate this chat to ${config.provider.kind} CLI in ${process.cwd()}.\nUses its existing authentication. Codex has its own read-only sandbox; Claude built-in tools are disabled. External CLI policies apply.`,
+          }))
+        )
+          throw new Error("Denied");
+        if (this.controller.signal.aborted) throw new Error("Cancelled");
         const result = await this.agent.respond(
           this.chatId,
           input,
@@ -426,7 +441,14 @@ export class Shell {
     } else if (verb === "tools") this.print(await this.mcp.listTools(name));
     else if (verb === "call") {
       const [tool, args] = head(tail);
-      this.print(await this.mcp.call(name, tool, object(args)));
+      this.controller = new AbortController();
+      try {
+        this.print(
+          await this.mcp.call(name, tool, object(args), this.controller.signal),
+        );
+      } finally {
+        this.controller = undefined;
+      }
     } else
       throw new Error("Usage: /mcp [add|connect|disconnect|remove|tools|call]");
   }
